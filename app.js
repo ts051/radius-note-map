@@ -315,6 +315,15 @@ function layoutPermanentLabels() {
   const entries = [...state.layers.values()]
     .filter(({ permanentLabel }) => permanentLabel?.getElement())
     .sort((left, right) => left.place.lat - right.place.lat || left.place.lng - right.place.lng);
+  const visiblePoints = [...state.layers.values()]
+    .map(({ place, circle }) => {
+      const point = map.latLngToContainerPoint([place.lat, place.lng]);
+      const visible = mapBounds.intersects(circle.getBounds())
+        && point.x >= 0 && point.x <= mapSize.x && point.y >= 0 && point.y <= mapSize.y;
+      return visible ? point : null;
+    })
+    .filter(Boolean);
+  const distribution = pointDistribution(visiblePoints);
   const occupied = [...state.layers.values()]
     .map(({ place, circle }) => {
       const point = map.latLngToContainerPoint([place.lat, place.lng]);
@@ -339,7 +348,8 @@ function layoutPermanentLabels() {
     element.style.display = "";
     const width = Math.max(60, element.offsetWidth);
     const height = Math.max(28, element.offsetHeight);
-    const selected = nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied);
+    const preference = coordinatePreference(anchor, distribution);
+    const selected = nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied, preference);
 
     if (!selected) {
       element.style.display = "none";
@@ -357,7 +367,7 @@ function layoutPermanentLabels() {
   }
 }
 
-function nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied) {
+function nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied, preference) {
   const padding = 8;
   const step = 6;
   const minimumX = width / 2 + padding;
@@ -377,13 +387,64 @@ function nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied)
   }
 
   candidates.sort((left, right) => left.distanceSquared - right.distanceSquared);
-  for (const candidate of candidates) {
-    const rectangle = labelRectangle(candidate.centerX, candidate.centerY, width, height);
-    if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
-      return { ...candidate, rectangle };
+  for (const direction of preferredDirectionSequence(preference)) {
+    for (const candidate of candidates) {
+      if (!matchesDirection(candidate, anchor, direction)) continue;
+      const rectangle = labelRectangle(candidate.centerX, candidate.centerY, width, height);
+      if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
+        return { ...candidate, rectangle };
+      }
     }
   }
   return null;
+}
+
+function pointDistribution(points) {
+  if (!points.length) return { centerX: 0, centerY: 0, spanX: 0, spanY: 0 };
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minimumX = Math.min(...xs);
+  const maximumX = Math.max(...xs);
+  const minimumY = Math.min(...ys);
+  const maximumY = Math.max(...ys);
+  return {
+    centerX: (minimumX + maximumX) / 2,
+    centerY: (minimumY + maximumY) / 2,
+    spanX: maximumX - minimumX,
+    spanY: maximumY - minimumY
+  };
+}
+
+function coordinatePreference(anchor, distribution) {
+  const thresholdX = distribution.spanX * 0.08;
+  const thresholdY = distribution.spanY * 0.08;
+  const deltaX = anchor.x - distribution.centerX;
+  const deltaY = anchor.y - distribution.centerY;
+  return {
+    horizontal: Math.abs(deltaX) > thresholdX ? Math.sign(deltaX) : 0,
+    vertical: Math.abs(deltaY) > thresholdY ? Math.sign(deltaY) : 0,
+    horizontalStrength: distribution.spanX ? Math.abs(deltaX) / distribution.spanX : 0,
+    verticalStrength: distribution.spanY ? Math.abs(deltaY) / distribution.spanY : 0
+  };
+}
+
+function preferredDirectionSequence(preference) {
+  const exact = { horizontal: preference.horizontal, vertical: preference.vertical };
+  const sequence = [exact];
+  if (preference.horizontal && preference.vertical) {
+    sequence.push(preference.horizontalStrength >= preference.verticalStrength
+      ? { horizontal: preference.horizontal, vertical: 0 }
+      : { horizontal: 0, vertical: preference.vertical });
+  }
+  if (exact.horizontal || exact.vertical) sequence.push({ horizontal: 0, vertical: 0 });
+  return sequence;
+}
+
+function matchesDirection(candidate, anchor, direction) {
+  const horizontal = Math.sign(candidate.centerX - anchor.x);
+  const vertical = Math.sign(candidate.centerY - anchor.y);
+  return (!direction.horizontal || horizontal === direction.horizontal)
+    && (!direction.vertical || vertical === direction.vertical);
 }
 
 function rectanglesOverlap(left, right, padding) {
