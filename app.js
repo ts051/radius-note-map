@@ -51,7 +51,10 @@ const state = {
 map.on("click", ({ latlng }) => {
   if (isAdmin()) beginNewPlace(latlng);
 });
-map.on("zoomend moveend resize", scheduleLabelLayout);
+map.on("zoomend moveend resize", () => {
+  finishAllLabelDrags();
+  scheduleLabelLayout();
+});
 elements.radius.addEventListener("input", updatePreviewRadius);
 elements.save.addEventListener("click", savePlace);
 elements.cancel.addEventListener("click", resetEditor);
@@ -278,7 +281,7 @@ function renderPlaces() {
     let permanentLabel = null;
     let connector = null;
     if (permanent) {
-      permanentLabel = L.tooltip({ permanent: true, direction: "center", className: "note-label", interactive: false })
+      permanentLabel = L.tooltip({ permanent: true, direction: "center", className: "note-label", interactive: true })
         .setLatLng([place.lat, place.lng])
         .setContent(label)
         .addTo(map);
@@ -296,9 +299,71 @@ function renderPlaces() {
       if (isAdmin()) editPlace(place.id);
       else focusPlace(place.id);
     });
-    state.layers.set(place.id, { marker, circle, permanentLabel, connector, place });
+    const layerRecord = { marker, circle, permanentLabel, connector, place, stopLabelDrag: null };
+    state.layers.set(place.id, layerRecord);
+    if (permanentLabel) enableLabelDragging(layerRecord);
   }
   scheduleLabelLayout();
+}
+
+function enableLabelDragging(layerRecord) {
+  const { permanentLabel, connector, place } = layerRecord;
+  const element = permanentLabel.getElement();
+  if (!element) return;
+  let pointerId = null;
+  let dragOffset = L.point(0, 0);
+
+  L.DomEvent.disableClickPropagation(element);
+  L.DomEvent.disableScrollPropagation(element);
+
+  const finishDrag = () => {
+    if (pointerId === null) return;
+    if (element.hasPointerCapture?.(pointerId)) element.releasePointerCapture(pointerId);
+    pointerId = null;
+    element.classList.remove("is-dragging");
+  };
+
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType !== "touch") return;
+    event.preventDefault();
+    event.stopPropagation();
+    pointerId = event.pointerId;
+    element.setPointerCapture?.(pointerId);
+    const pointer = pointerContainerPoint(event);
+    const labelPoint = map.latLngToContainerPoint(permanentLabel.getLatLng());
+    dragOffset = labelPoint.subtract(pointer);
+    element.classList.add("is-dragging");
+  });
+
+  element.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointer = pointerContainerPoint(event).add(dragOffset);
+    const mapSize = map.getSize();
+    const width = Math.max(60, element.offsetWidth);
+    const height = Math.max(28, element.offsetHeight);
+    const centerX = clamp(pointer.x, width / 2 + 8, mapSize.x - width / 2 - 8);
+    const centerY = clamp(pointer.y, height / 2 + 8, mapSize.y - height / 2 - 8);
+    const labelLatLng = map.containerPointToLatLng([centerX, centerY]);
+    permanentLabel.setLatLng(labelLatLng);
+    connector.setLatLngs([[place.lat, place.lng], labelLatLng]);
+    const anchor = map.latLngToContainerPoint([place.lat, place.lng]);
+    connector.setStyle({ opacity: Math.hypot(centerX - anchor.x, centerY - anchor.y) > 28 ? 0.9 : 0 });
+  });
+
+  element.addEventListener("pointerup", finishDrag);
+  element.addEventListener("pointercancel", finishDrag);
+  layerRecord.stopLabelDrag = finishDrag;
+}
+
+function pointerContainerPoint(event) {
+  const rectangle = map.getContainer().getBoundingClientRect();
+  return L.point(event.clientX - rectangle.left, event.clientY - rectangle.top);
+}
+
+function finishAllLabelDrags() {
+  for (const layer of state.layers.values()) layer.stopLabelDrag?.();
 }
 
 function scheduleLabelLayout() {
@@ -461,6 +526,10 @@ function labelRectangle(centerX, centerY, width, height) {
     top: centerY - height / 2,
     bottom: centerY + height / 2
   };
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function renderList() {
