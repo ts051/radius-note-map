@@ -126,7 +126,8 @@ input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px 
 .leaflet-marker-icon.point-marker { border: 0; background: transparent; }
 .point-dot { display: block; width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; background: var(--accent); box-shadow: 0 3px 12px rgba(24,49,45,.38); }
 .point-dot.selected { background: var(--green); box-shadow: 0 0 0 4px rgba(23,76,69,.20), 0 3px 12px rgba(24,49,45,.38); }
-.note-label { z-index: 650; border: 0; background: transparent; box-shadow: none; transition: transform .16s ease-out; }
+.note-label { z-index: 650; border: 0; background: transparent; box-shadow: none; cursor: grab; user-select: none; touch-action: none; transition: transform .16s ease-out; }
+.note-label.is-dragging { z-index: 700; cursor: grabbing; transition: none; }
 .note-label::before { display: none; }
 .note-card { max-width: 220px; padding: 7px 10px; border-left: 3px solid var(--accent); border-radius: 4px 9px 9px 4px; color: var(--ink); background: rgba(255,255,255,.94); box-shadow: 0 5px 18px rgba(24,49,45,.18); font-size: 12px; line-height: 1.4; white-space: normal; }
 
