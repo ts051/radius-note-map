@@ -312,27 +312,33 @@ function scheduleLabelLayout() {
 function layoutPermanentLabels() {
   const occupied = [];
   const mapSize = map.getSize();
+  const mapBounds = map.getBounds();
   const entries = [...state.layers.values()]
     .filter(({ permanentLabel }) => permanentLabel?.getElement())
     .sort((left, right) => left.place.lat - right.place.lat || left.place.lng - right.place.lng);
 
-  for (const { place, permanentLabel, connector } of entries) {
+  for (const { place, circle, permanentLabel, connector } of entries) {
     const element = permanentLabel.getElement();
     const width = Math.max(60, element.offsetWidth);
     const height = Math.max(28, element.offsetHeight);
     const anchor = map.latLngToContainerPoint([place.lat, place.lng]);
+    const circleVisible = mapBounds.intersects(circle.getBounds());
+    const pointVisible = anchor.x >= 0 && anchor.x <= mapSize.x && anchor.y >= 0 && anchor.y <= mapSize.y;
+
+    if (!circleVisible || !pointVisible) {
+      element.style.display = "none";
+      connector.setStyle({ opacity: 0 });
+      continue;
+    }
+
     const candidates = labelCandidates(width, height);
     let selected = null;
 
     for (const [offsetX, offsetY] of candidates) {
-      const centerX = clamp(anchor.x + offsetX, width / 2 + 8, mapSize.x - width / 2 - 8);
-      const centerY = clamp(anchor.y + offsetY, height / 2 + 8, mapSize.y - height / 2 - 8);
-      const rectangle = {
-        left: centerX - width / 2,
-        right: centerX + width / 2,
-        top: centerY - height / 2,
-        bottom: centerY + height / 2
-      };
+      const centerX = anchor.x + offsetX;
+      const centerY = anchor.y + offsetY;
+      const rectangle = labelRectangle(centerX, centerY, width, height);
+      if (!rectangleInsideMap(rectangle, mapSize, 8)) continue;
       if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
         selected = { centerX, centerY, rectangle };
         break;
@@ -340,24 +346,12 @@ function layoutPermanentLabels() {
     }
 
     if (!selected) {
-      for (let centerY = height / 2 + 8; centerY <= mapSize.y - height / 2 - 8 && !selected; centerY += height + 14) {
-        for (let centerX = width / 2 + 8; centerX <= mapSize.x - width / 2 - 8; centerX += width + 14) {
-          const rectangle = labelRectangle(centerX, centerY, width, height);
-          if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
-            selected = { centerX, centerY, rectangle };
-            break;
-          }
-        }
-      }
-    }
-
-    if (!selected) {
-      permanentLabel.getElement().style.display = "none";
+      element.style.display = "none";
       connector.setStyle({ opacity: 0 });
       continue;
     }
 
-    permanentLabel.getElement().style.display = "";
+    element.style.display = "";
     occupied.push(selected.rectangle);
     const labelLatLng = map.containerPointToLatLng([selected.centerX, selected.centerY]);
     permanentLabel.setLatLng(labelLatLng);
@@ -368,21 +362,19 @@ function layoutPermanentLabels() {
 }
 
 function labelCandidates(width, height) {
+  const maximumDistance = 145;
   const horizontal = width / 2 + 17;
   const vertical = height / 2 + 17;
   const candidates = [
     [horizontal, 0], [-horizontal, 0], [0, -vertical], [0, vertical],
     [horizontal, -vertical], [-horizontal, -vertical], [horizontal, vertical], [-horizontal, vertical]
   ];
-  for (let ring = 2; ring <= 7; ring += 1) {
-    const radiusX = horizontal + (ring - 1) * (width * 0.72 + 10);
-    const radiusY = vertical + (ring - 1) * (height * 0.72 + 8);
-    for (let index = 0; index < 12; index += 1) {
-      const angle = (index / 12) * Math.PI * 2;
-      candidates.push([Math.cos(angle) * radiusX, Math.sin(angle) * radiusY]);
-    }
+  const secondRing = Math.min(maximumDistance, Math.max(horizontal, vertical) + 42);
+  for (let index = 0; index < 12; index += 1) {
+    const angle = (index / 12) * Math.PI * 2;
+    candidates.push([Math.cos(angle) * secondRing, Math.sin(angle) * secondRing]);
   }
-  return candidates;
+  return candidates.filter(([x, y]) => Math.hypot(x, y) <= maximumDistance);
 }
 
 function rectanglesOverlap(left, right, padding) {
@@ -401,8 +393,11 @@ function labelRectangle(centerX, centerY, width, height) {
   };
 }
 
-function clamp(value, minimum, maximum) {
-  return Math.min(maximum, Math.max(minimum, value));
+function rectangleInsideMap(rectangle, mapSize, padding) {
+  return rectangle.left >= padding
+    && rectangle.right <= mapSize.x - padding
+    && rectangle.top >= padding
+    && rectangle.bottom <= mapSize.y - padding;
 }
 
 function renderList() {
