@@ -310,17 +310,22 @@ function scheduleLabelLayout() {
 }
 
 function layoutPermanentLabels() {
-  const occupied = [];
   const mapSize = map.getSize();
   const mapBounds = map.getBounds();
   const entries = [...state.layers.values()]
     .filter(({ permanentLabel }) => permanentLabel?.getElement())
     .sort((left, right) => left.place.lat - right.place.lat || left.place.lng - right.place.lng);
+  const occupied = [...state.layers.values()]
+    .map(({ place, circle }) => {
+      const point = map.latLngToContainerPoint([place.lat, place.lng]);
+      const visible = mapBounds.intersects(circle.getBounds())
+        && point.x >= 0 && point.x <= mapSize.x && point.y >= 0 && point.y <= mapSize.y;
+      return visible ? labelRectangle(point.x, point.y, 28, 28) : null;
+    })
+    .filter(Boolean);
 
   for (const { place, circle, permanentLabel, connector } of entries) {
     const element = permanentLabel.getElement();
-    const width = Math.max(60, element.offsetWidth);
-    const height = Math.max(28, element.offsetHeight);
     const anchor = map.latLngToContainerPoint([place.lat, place.lng]);
     const circleVisible = mapBounds.intersects(circle.getBounds());
     const pointVisible = anchor.x >= 0 && anchor.x <= mapSize.x && anchor.y >= 0 && anchor.y <= mapSize.y;
@@ -331,19 +336,10 @@ function layoutPermanentLabels() {
       continue;
     }
 
-    const candidates = labelCandidates(width, height);
-    let selected = null;
-
-    for (const [offsetX, offsetY] of candidates) {
-      const centerX = anchor.x + offsetX;
-      const centerY = anchor.y + offsetY;
-      const rectangle = labelRectangle(centerX, centerY, width, height);
-      if (!rectangleInsideMap(rectangle, mapSize, 8)) continue;
-      if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
-        selected = { centerX, centerY, rectangle };
-        break;
-      }
-    }
+    element.style.display = "";
+    const width = Math.max(60, element.offsetWidth);
+    const height = Math.max(28, element.offsetHeight);
+    const selected = nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied);
 
     if (!selected) {
       element.style.display = "none";
@@ -361,20 +357,33 @@ function layoutPermanentLabels() {
   }
 }
 
-function labelCandidates(width, height) {
-  const maximumDistance = 145;
-  const horizontal = width / 2 + 17;
-  const vertical = height / 2 + 17;
-  const candidates = [
-    [horizontal, 0], [-horizontal, 0], [0, -vertical], [0, vertical],
-    [horizontal, -vertical], [-horizontal, -vertical], [horizontal, vertical], [-horizontal, vertical]
-  ];
-  const secondRing = Math.min(maximumDistance, Math.max(horizontal, vertical) + 42);
-  for (let index = 0; index < 12; index += 1) {
-    const angle = (index / 12) * Math.PI * 2;
-    candidates.push([Math.cos(angle) * secondRing, Math.sin(angle) * secondRing]);
+function nearestAvailableLabelPosition(anchor, width, height, mapSize, occupied) {
+  const padding = 8;
+  const step = 6;
+  const minimumX = width / 2 + padding;
+  const maximumX = mapSize.x - width / 2 - padding;
+  const minimumY = height / 2 + padding;
+  const maximumY = mapSize.y - height / 2 - padding;
+  const candidates = [];
+
+  for (let centerY = minimumY; centerY <= maximumY; centerY += step) {
+    for (let centerX = minimumX; centerX <= maximumX; centerX += step) {
+      candidates.push({
+        centerX,
+        centerY,
+        distanceSquared: (centerX - anchor.x) ** 2 + (centerY - anchor.y) ** 2
+      });
+    }
   }
-  return candidates.filter(([x, y]) => Math.hypot(x, y) <= maximumDistance);
+
+  candidates.sort((left, right) => left.distanceSquared - right.distanceSquared);
+  for (const candidate of candidates) {
+    const rectangle = labelRectangle(candidate.centerX, candidate.centerY, width, height);
+    if (!occupied.some((other) => rectanglesOverlap(rectangle, other, 7))) {
+      return { ...candidate, rectangle };
+    }
+  }
+  return null;
 }
 
 function rectanglesOverlap(left, right, padding) {
@@ -391,13 +400,6 @@ function labelRectangle(centerX, centerY, width, height) {
     top: centerY - height / 2,
     bottom: centerY + height / 2
   };
-}
-
-function rectangleInsideMap(rectangle, mapSize, padding) {
-  return rectangle.left >= padding
-    && rectangle.right <= mapSize.x - padding
-    && rectangle.top >= padding
-    && rectangle.bottom <= mapSize.y - padding;
 }
 
 function renderList() {
