@@ -61,8 +61,9 @@ h1 { margin: 0; font-size: 23px; line-height: 1.2; letter-spacing: -.02em; }
 .mode-badge.admin { color: white; background: var(--green); }
 .connection-message { margin-top: 18px; padding: 11px 13px; border: 1px solid #e7c99a; border-radius: 10px; color: #74490c; background: #fff7e9; font-size: 12px; line-height: 1.5; }
 
-.editor, .places, .password-panel { margin-top: 26px; }
+.editor, .places, .password-panel, .global-radius-control { margin-top: 26px; }
 .editor { padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #f8fbf9; }
+.global-radius-control { padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: #f5faf7; }
 .password-panel { padding-top: 18px; border-top: 1px solid var(--line); }
 .password-panel .button { margin-top: 12px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
