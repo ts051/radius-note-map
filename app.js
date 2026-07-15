@@ -283,8 +283,8 @@ function renderPlaces() {
         .setContent(label)
         .addTo(map);
       connector = L.polyline([[place.lat, place.lng], [place.lat, place.lng]], {
-        color: "#7b918b",
-        weight: 1,
+        color: "#d85f3c",
+        weight: 2.5,
         opacity: 0,
         interactive: false
       }).addTo(map);
@@ -363,7 +363,7 @@ function layoutPermanentLabels() {
     permanentLabel.setLatLng(labelLatLng);
     connector.setLatLngs([[place.lat, place.lng], labelLatLng]);
     const distance = Math.hypot(selected.centerX - anchor.x, selected.centerY - anchor.y);
-    connector.setStyle({ opacity: distance > 28 ? 0.55 : 0 });
+    connector.setStyle({ opacity: distance > 28 ? 0.9 : 0 });
   }
 }
 
