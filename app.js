@@ -12,7 +12,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const elements = {
   name: document.querySelector("#name-input"),
   showName: document.querySelector("#show-name-input"),
-  radius: document.querySelector("#radius-input"),
+  globalRadius: document.querySelector("#global-radius-input"),
   memo: document.querySelector("#memo-input"),
   coordinates: document.querySelector("#coordinates"),
   status: document.querySelector("#editor-status"),
@@ -45,7 +45,8 @@ const state = {
   previewMarker: null,
   previewCircle: null,
   layers: new Map(),
-  labelLayoutFrame: null
+  labelLayoutFrame: null,
+  displayRadius: 500
 };
 
 map.on("click", ({ latlng }) => {
@@ -55,7 +56,8 @@ map.on("zoomend moveend resize", () => {
   finishAllLabelDrags();
   scheduleLabelLayout();
 });
-elements.radius.addEventListener("input", updatePreviewRadius);
+elements.globalRadius.addEventListener("input", updateGlobalRadius);
+elements.globalRadius.addEventListener("change", normalizeGlobalRadiusInput);
 elements.save.addEventListener("click", savePlace);
 elements.cancel.addEventListener("click", resetEditor);
 elements.clear.addEventListener("click", clearAllPlaces);
@@ -140,7 +142,6 @@ function beginNewPlace(latlng) {
   elements.name.value = "";
   elements.showName.checked = true;
   elements.memo.value = "";
-  elements.radius.value = "500";
   showDraft("新規地点");
 }
 
@@ -153,7 +154,6 @@ function editPlace(id) {
   elements.name.value = place.name;
   elements.showName.checked = showsName(place);
   elements.memo.value = place.memo;
-  elements.radius.value = String(place.radius);
   showDraft("編集中");
   map.setView([place.lat, place.lng], Math.max(map.getZoom(), 15), { animate: true });
   renderPlaces();
@@ -163,7 +163,7 @@ function editPlace(id) {
 function showDraft(status) {
   clearPreview();
   const latlng = [state.draft.lat, state.draft.lng];
-  state.previewCircle = L.circle(latlng, circleStyle(normalizedRadius())).addTo(map);
+  state.previewCircle = L.circle(latlng, circleStyle(state.displayRadius)).addTo(map);
   state.previewMarker = L.marker(latlng, { icon: pointIcon(true) }).addTo(map);
   elements.coordinates.textContent = `${state.draft.lat.toFixed(6)}, ${state.draft.lng.toFixed(6)}`;
   elements.status.textContent = status;
@@ -174,8 +174,20 @@ function showDraft(status) {
   elements.name.focus();
 }
 
-function updatePreviewRadius() {
-  if (state.previewCircle) state.previewCircle.setRadius(normalizedRadius());
+function updateGlobalRadius() {
+  const value = Number(elements.globalRadius.value);
+  if (!Number.isFinite(value)) return;
+  state.displayRadius = normalizeRadius(value);
+  state.previewCircle?.setRadius(state.displayRadius);
+  for (const { circle } of state.layers.values()) circle.setRadius(state.displayRadius);
+  renderList();
+  scheduleLabelLayout();
+}
+
+function normalizeGlobalRadiusInput() {
+  state.displayRadius = normalizeRadius(Number(elements.globalRadius.value));
+  elements.globalRadius.value = String(state.displayRadius);
+  updateGlobalRadius();
 }
 
 async function savePlace() {
@@ -186,7 +198,7 @@ async function savePlace() {
     lng: state.draft.lng,
     name: elements.name.value.trim() || `地点 ${state.places.length + 1}`,
     showName: elements.showName.checked,
-    radius: normalizedRadius(),
+    radius: state.displayRadius,
     memo: elements.memo.value.trim()
   };
   elements.save.disabled = true;
@@ -209,7 +221,6 @@ function resetEditor() {
   elements.name.value = "";
   elements.showName.checked = true;
   elements.memo.value = "";
-  elements.radius.value = "500";
   elements.coordinates.textContent = "緯度・経度は未選択です";
   elements.status.textContent = "地図をクリック";
   elements.save.textContent = "この地点を登録";
@@ -271,7 +282,7 @@ function renderPlaces() {
   state.layers.clear();
   for (const place of state.places) {
     const selected = place.id === state.editingId;
-    const circle = L.circle([place.lat, place.lng], circleStyle(place.radius)).addTo(map);
+    const circle = L.circle([place.lat, place.lng], circleStyle(state.displayRadius)).addTo(map);
     const marker = L.marker([place.lat, place.lng], { icon: pointIcon(selected), title: place.name }).addTo(map);
     const showName = showsName(place);
     const permanent = showName || Boolean(place.memo);
@@ -543,7 +554,7 @@ function renderList() {
     <article class="place-item${place.id === state.editingId ? " is-editing" : ""}">
       <button class="place-main" type="button" data-focus="${place.id}">
         <span class="place-name">${escapeHtml(place.name)}</span>
-        <span class="place-meta">半径 ${place.radius.toLocaleString("ja-JP")}m${showsName(place) ? " · 地点名表示" : ""}${place.memo ? " · メモあり" : ""}</span>
+        <span class="place-meta">${showsName(place) ? "地点名表示" : "地点名非表示"}${place.memo ? " · メモあり" : ""}</span>
       </button>
       ${isAdmin() ? `<span class="place-actions">
         <button class="edit-one" type="button" data-edit="${place.id}" aria-label="${escapeHtml(place.name)}を編集">編集</button>
@@ -558,7 +569,7 @@ function renderList() {
 function focusPlace(id) {
   const place = state.places.find((item) => item.id === id);
   if (!place) return;
-  map.setView([place.lat, place.lng], zoomForRadius(place.radius), { animate: true });
+  map.setView([place.lat, place.lng], zoomForRadius(state.displayRadius), { animate: true });
   if (!place.memo && !showsName(place)) state.layers.get(id)?.marker.openTooltip();
 }
 
@@ -658,8 +669,9 @@ function showsName(place) {
   return place.showName !== false;
 }
 
-function normalizedRadius() {
-  return Math.min(50000, Math.max(10, Number(elements.radius.value) || 500));
+function normalizeRadius(value) {
+  const numeric = Number.isFinite(value) ? value : 500;
+  return Math.min(50000, Math.max(10, Math.round(numeric)));
 }
 
 function zoomForRadius(radius) {

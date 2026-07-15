@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#174c45" />
-    <title>Radius Note Map</title>
+    <title>なごやののうえん</title>
     <link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -15,7 +15,7 @@
           <span class="brand-mark" aria-hidden="true">◎</span>
           <div class="brand-content">
             <p class="eyebrow">CLICK · DRAW · NOTE</p>
-            <h1>Radius Note Map</h1>
+            <h1>なごやののうえん</h1>
             <p class="lead">地図をクリックして、地点・半径・メモを登録します。</p>
             <div class="mode-row">
               <span class="mode-badge" id="mode-badge">閲覧モード</span>
@@ -25,6 +25,21 @@
         </header>
 
         <div class="connection-message" id="connection-message" hidden></div>
+
+        <section class="global-radius-control" aria-labelledby="global-radius-title">
+          <div class="section-heading">
+            <h2 id="global-radius-title">円の一括操作</h2>
+            <span class="status">全地点共通</span>
+          </div>
+          <label>
+            表示半径
+            <span class="radius-field">
+              <input id="global-radius-input" type="number" min="10" max="50000" step="10" value="500" inputmode="numeric" />
+              <span>m</span>
+            </span>
+          </label>
+          <p class="hint">閲覧モードでも変更できます。すべての地点の円へ同時に反映されます。</p>
+        </section>
 
         <section class="editor" id="editor-panel" aria-labelledby="editor-title" hidden>
           <div class="section-heading">
@@ -39,13 +54,6 @@
           <label class="check-field">
             <input id="show-name-input" type="checkbox" checked />
             <span>地点名を地図上に常に表示</span>
-          </label>
-          <label>
-            半径
-            <span class="radius-field">
-              <input id="radius-input" type="number" min="10" max="50000" step="10" value="500" inputmode="numeric" />
-              <span>m</span>
-            </span>
           </label>
           <label>
             周辺に表示するメモ
