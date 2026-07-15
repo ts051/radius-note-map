@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#174c45" />
+    <title>Radius Note Map</title>
+    <link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <header class="brand">
+          <span class="brand-mark" aria-hidden="true">◎</span>
+          <div class="brand-content">
+            <p class="eyebrow">CLICK · DRAW · NOTE</p>
+            <h1>Radius Note Map</h1>
+            <p class="lead">地図をクリックして、地点・半径・メモを登録します。</p>
+            <div class="mode-row">
+              <span class="mode-badge" id="mode-badge">閲覧モード</span>
+              <button class="text-button" id="mode-button" type="button">地点登録モードへ</button>
+            </div>
+          </div>
+        </header>
+
+        <div class="connection-message" id="connection-message" hidden></div>
+
+        <section class="editor" id="editor-panel" aria-labelledby="editor-title" hidden>
+          <div class="section-heading">
+            <h2 id="editor-title">地点を登録</h2>
+            <span id="editor-status" class="status">地図をクリック</span>
+          </div>
+          <div class="coordinates" id="coordinates">緯度・経度は未選択です</div>
+          <label>
+            地点名
+            <input id="name-input" type="text" maxlength="60" placeholder="例：打合せ候補地" />
+          </label>
+          <label class="check-field">
+            <input id="show-name-input" type="checkbox" checked />
+            <span>地点名を地図上に常に表示</span>
+          </label>
+          <label>
+            半径
+            <span class="radius-field">
+              <input id="radius-input" type="number" min="10" max="50000" step="10" value="500" inputmode="numeric" />
+              <span>m</span>
+            </span>
+          </label>
+          <label>
+            周辺に表示するメモ
+            <textarea id="memo-input" maxlength="200" rows="3" placeholder="例：徒歩圏内を確認"></textarea>
+          </label>
+          <div class="actions">
+            <button class="button primary" id="save-button" type="button" disabled>この地点を登録</button>
+            <button class="button ghost" id="cancel-button" type="button" disabled>キャンセル</button>
+          </div>
+          <p class="hint">登録後は地点をクリックすると編集できます。円の端を見やすくするには地図を拡大してください。</p>
+        </section>
+
+        <section class="places" aria-labelledby="places-title">
+          <div class="section-heading">
+            <h2 id="places-title">登録地点</h2>
+            <span class="count" id="place-count">0</span>
+          </div>
+          <div class="place-list" id="place-list"></div>
+          <button class="text-button danger" id="clear-button" type="button" hidden>すべて削除</button>
+        </section>
+
+        <section class="password-panel" id="password-panel" hidden aria-labelledby="password-title">
+          <h2 id="password-title">管理パスワードを変更</h2>
+          <label>
+            新しいパスワード
+            <input id="new-password-input" type="password" minlength="4" autocomplete="new-password" />
+          </label>
+          <button class="button ghost" id="change-password-button" type="button">パスワードを変更</button>
+          <p class="hint" id="password-message"></p>
+        </section>
+      </aside>
+
+      <section class="map-panel" aria-label="地点登録地図">
+        <div id="map"></div>
+        <div class="map-guide" id="map-guide">地図上の登録したい場所をクリック</div>
+      </section>
+    </main>
+
+    <dialog class="auth-dialog" id="auth-dialog">
+      <form method="dialog" id="auth-form">
+        <div class="section-heading">
+          <h2>地点登録モード</h2>
+          <button class="dialog-close" value="cancel" type="submit" aria-label="閉じる">×</button>
+        </div>
+        <p class="dialog-copy">管理パスワードを入力してください。</p>
+        <label>
+          パスワード
+          <input id="password-input" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="form-error" id="auth-error" role="alert"></p>
+        <button class="button primary" id="login-button" value="default" type="submit">切り替える</button>
+      </form>
+    </dialog>
+
+    <script src="./vendor/leaflet/leaflet.js"></script>
+    <script src="./config.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
