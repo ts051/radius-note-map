@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npx --yes serve ."
+    "dev": "npx --yes serve . -l 4181"
   },
   "devDependencies": {
     "serve": "^14.2.4"
