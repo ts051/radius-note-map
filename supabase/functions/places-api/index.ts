@@ -19,6 +19,7 @@ type PlaceInput = {
   lng: number;
   name: string;
   showName: boolean;
+  color: string;
   radius: number;
   memo: string;
 };
@@ -65,7 +66,7 @@ Deno.serve(async (request) => {
 async function listPlaces(cors: HeadersInit) {
   const { data, error } = await supabase
     .from("radius_note_places")
-    .select("id,lat,lng,name,show_name,radius,memo,created_at,updated_at")
+    .select("id,lat,lng,name,show_name,color,radius,memo,created_at,updated_at")
     .order("created_at", { ascending: true });
   if (error) throw error;
   return json({ places: (data ?? []).map(toClientPlace) }, 200, cors);
@@ -98,6 +99,7 @@ async function mutatePlace(request: Request, action: "create" | "update", rawPla
     lng: place.lng,
     name: place.name,
     show_name: place.showName,
+    color: place.color,
     radius: place.radius,
     memo: place.memo,
     updated_at: new Date().toISOString()
@@ -106,7 +108,7 @@ async function mutatePlace(request: Request, action: "create" | "update", rawPla
   const query = action === "create"
     ? supabase.from("radius_note_places").insert(record)
     : supabase.from("radius_note_places").update(record).eq("id", place.id);
-  const { data, error } = await query.select("id,lat,lng,name,show_name,radius,memo,created_at,updated_at").single();
+  const { data, error } = await query.select("id,lat,lng,name,show_name,color,radius,memo,created_at,updated_at").single();
   if (error) throw error;
   return json({ place: toClientPlace(data) }, 200, cors);
 }
@@ -190,12 +192,14 @@ function validatePlace(value: unknown, requireId: boolean): PlaceInput | null {
   const radius = Number(place.radius);
   const name = String(place.name ?? "").trim();
   const memo = String(place.memo ?? "").trim();
+  const color = String(place.color ?? "").toLowerCase();
   if (requireId && (!id || !isUuid(id))) return null;
   if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
   if (!Number.isFinite(lng) || lng < -180 || lng > 180) return null;
   if (!Number.isInteger(radius) || radius < 10 || radius > 50000) return null;
   if (!name || name.length > 60 || memo.length > 200 || typeof place.showName !== "boolean") return null;
-  return { id, lat, lng, name, showName: place.showName, radius, memo };
+  if (!/^#[0-9a-f]{6}$/.test(color)) return null;
+  return { id, lat, lng, name, showName: place.showName, color, radius, memo };
 }
 
 async function isLoginBlocked(clientKey: string) {
@@ -236,6 +240,7 @@ function toClientPlace(place: Record<string, unknown>) {
     lng: place.lng,
     name: place.name,
     showName: place.show_name,
+    color: place.color,
     radius: place.radius,
     memo: place.memo,
     createdAt: place.created_at,

@@ -88,6 +88,8 @@ input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px 
 .check-field input:focus { box-shadow: 0 0 0 3px rgba(23, 76, 69, .11); }
 .radius-field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
 .radius-field span { color: var(--ink); font-weight: 700; }
+.color-field { display: flex; align-items: center; gap: 10px; color: var(--muted); font-weight: 500; }
+.color-field input[type="color"] { flex: 0 0 48px; width: 48px; height: 38px; padding: 3px; cursor: pointer; }
 
 .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 16px; }
 .button { min-height: 40px; border: 0; border-radius: 10px; padding: 0 14px; cursor: pointer; font-weight: 700; }
@@ -102,7 +104,9 @@ input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px 
 .place-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: white; }
 .place-item.is-editing { border-color: var(--green); background: #f3f9f6; box-shadow: 0 0 0 2px rgba(23, 76, 69, .08); }
 .place-main { min-width: 0; border: 0; padding: 0; color: inherit; background: none; text-align: left; cursor: pointer; }
-.place-name { display: block; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.place-name { display: flex; align-items: center; gap: 7px; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.place-color { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--point-color); box-shadow: 0 0 0 2px white, 0 0 0 3px #d9e2df; }
+.place-name-text { overflow: hidden; text-overflow: ellipsis; }
 .place-meta { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .place-actions { display: flex; align-items: center; gap: 3px; }
 .edit-one { border: 0; border-radius: 7px; padding: 5px 7px; color: var(--green); background: var(--mint); cursor: pointer; font-size: 11px; font-weight: 700; }
@@ -125,12 +129,12 @@ input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px 
 .map-guide { position: absolute; z-index: 500; top: 18px; left: 50%; padding: 10px 15px; border: 1px solid rgba(255,255,255,.75); border-radius: 999px; color: white; background: rgba(23,76,69,.9); box-shadow: var(--shadow); font-size: 12px; font-weight: 700; transform: translateX(-50%); pointer-events: none; backdrop-filter: blur(8px); }
 .leaflet-container { background: #e7eee9; cursor: crosshair; }
 .leaflet-marker-icon.point-marker { border: 0; background: transparent; }
-.point-dot { display: block; width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; background: var(--accent); box-shadow: 0 3px 12px rgba(24,49,45,.38); }
-.point-dot.selected { background: var(--green); box-shadow: 0 0 0 4px rgba(23,76,69,.20), 0 3px 12px rgba(24,49,45,.38); }
+.point-dot { display: block; width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; background: var(--point-color, var(--accent)); box-shadow: 0 3px 12px rgba(24,49,45,.38); }
+.point-dot.selected { box-shadow: 0 0 0 4px rgba(23,76,69,.28), 0 3px 12px rgba(24,49,45,.38); }
 .note-label { z-index: 650; border: 0; background: transparent; box-shadow: none; cursor: grab; user-select: none; touch-action: none; transition: transform .16s ease-out; }
 .note-label.is-dragging { z-index: 700; cursor: grabbing; transition: none; }
 .note-label::before { display: none; }
-.note-card { max-height: 220px; padding: 10px 7px; border-top: 3px solid var(--accent); border-radius: 4px 4px 9px 9px; color: var(--ink); background: rgba(255,255,255,.94); box-shadow: 0 5px 18px rgba(24,49,45,.18); font-size: 12px; line-height: 1.4; white-space: normal; writing-mode: vertical-rl; text-orientation: mixed; }
+.note-card { max-height: 220px; padding: 10px 7px; border-top: 3px solid var(--point-color, var(--accent)); border-radius: 4px 4px 9px 9px; color: var(--ink); background: rgba(255,255,255,.94); box-shadow: 0 5px 18px rgba(24,49,45,.18); font-size: 12px; line-height: 1.4; white-space: normal; writing-mode: vertical-rl; text-orientation: mixed; }
 
 @media (max-width: 760px) {
   .app-shell { grid-template-columns: 1fr; grid-template-rows: auto 58vh; height: auto; min-height: 100vh; overflow: visible; }
