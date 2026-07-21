@@ -1,4 +1,5 @@
 const DEFAULT_CENTER = [35.1815, 136.9066];
+const DEFAULT_POINT_COLOR = "#e87b52";
 const LEGACY_STORAGE_KEY = "radius-note-map.places.v1";
 const API_URL = window.RADIUS_NOTE_MAP_CONFIG?.functionUrl?.replace(/\/$/, "") || "";
 
@@ -12,6 +13,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const elements = {
   name: document.querySelector("#name-input"),
   showName: document.querySelector("#show-name-input"),
+  color: document.querySelector("#color-input"),
   globalRadius: document.querySelector("#global-radius-input"),
   memo: document.querySelector("#memo-input"),
   coordinates: document.querySelector("#coordinates"),
@@ -58,6 +60,7 @@ map.on("zoomend moveend resize", () => {
 });
 elements.globalRadius.addEventListener("input", updateGlobalRadius);
 elements.globalRadius.addEventListener("change", normalizeGlobalRadiusInput);
+elements.color.addEventListener("input", updateDraftColor);
 elements.save.addEventListener("click", savePlace);
 elements.cancel.addEventListener("click", resetEditor);
 elements.clear.addEventListener("click", clearAllPlaces);
@@ -141,6 +144,7 @@ function beginNewPlace(latlng) {
   state.draft = { lat: latlng.lat, lng: latlng.lng };
   elements.name.value = "";
   elements.showName.checked = true;
+  elements.color.value = DEFAULT_POINT_COLOR;
   elements.memo.value = "";
   showDraft("新規地点");
 }
@@ -153,6 +157,7 @@ function editPlace(id) {
   state.draft = { lat: place.lat, lng: place.lng };
   elements.name.value = place.name;
   elements.showName.checked = showsName(place);
+  elements.color.value = normalizeColor(place.color);
   elements.memo.value = place.memo;
   showDraft("編集中");
   map.setView([place.lat, place.lng], Math.max(map.getZoom(), 15), { animate: true });
@@ -164,7 +169,7 @@ function showDraft(status) {
   clearPreview();
   const latlng = [state.draft.lat, state.draft.lng];
   state.previewCircle = L.circle(latlng, circleStyle(state.displayRadius)).addTo(map);
-  state.previewMarker = L.marker(latlng, { icon: pointIcon(true) }).addTo(map);
+  state.previewMarker = L.marker(latlng, { icon: pointIcon(elements.color.value, true) }).addTo(map);
   elements.coordinates.textContent = `${state.draft.lat.toFixed(6)}, ${state.draft.lng.toFixed(6)}`;
   elements.status.textContent = status;
   elements.save.textContent = state.editingId ? "変更を保存" : "この地点を登録";
@@ -184,6 +189,11 @@ function updateGlobalRadius() {
   scheduleLabelLayout();
 }
 
+function updateDraftColor() {
+  if (!state.draft) return;
+  state.previewMarker?.setIcon(pointIcon(elements.color.value, true));
+}
+
 function normalizeGlobalRadiusInput() {
   state.displayRadius = normalizeRadius(Number(elements.globalRadius.value));
   elements.globalRadius.value = String(state.displayRadius);
@@ -198,6 +208,7 @@ async function savePlace() {
     lng: state.draft.lng,
     name: elements.name.value.trim() || `地点 ${state.places.length + 1}`,
     showName: elements.showName.checked,
+    color: normalizeColor(elements.color.value),
     radius: state.displayRadius,
     memo: elements.memo.value.trim()
   };
@@ -220,6 +231,7 @@ function resetEditor() {
   clearPreview();
   elements.name.value = "";
   elements.showName.checked = true;
+  elements.color.value = DEFAULT_POINT_COLOR;
   elements.memo.value = "";
   elements.coordinates.textContent = "緯度・経度は未選択です";
   elements.status.textContent = "地図をクリック";
@@ -260,6 +272,7 @@ async function migrateLegacyPlaces() {
           lng: Number(place.lng),
           name: String(place.name || "移行地点").slice(0, 60),
           showName: place.showName !== false,
+          color: normalizeColor(place.color),
           radius: Math.min(50000, Math.max(10, Math.round(Number(place.radius) || 500))),
           memo: String(place.memo || "").slice(0, 200)
         }
@@ -283,12 +296,13 @@ function renderPlaces() {
   for (const place of state.places) {
     const selected = place.id === state.editingId;
     const circle = L.circle([place.lat, place.lng], circleStyle(state.displayRadius)).addTo(map);
-    const marker = L.marker([place.lat, place.lng], { icon: pointIcon(selected), title: place.name }).addTo(map);
+    const color = normalizeColor(place.color);
+    const marker = L.marker([place.lat, place.lng], { icon: pointIcon(color, selected), title: place.name }).addTo(map);
     const showName = showsName(place);
     const permanent = showName || Boolean(place.memo);
     const nameText = showName || !place.memo ? `<strong>${escapeHtml(place.name)}</strong>` : "";
     const separator = nameText && place.memo ? "<br>" : "";
-    const label = `<div class="note-card">${nameText}${separator}${escapeHtml(place.memo)}</div>`;
+    const label = `<div class="note-card" style="--point-color:${color}">${nameText}${separator}${escapeHtml(place.memo)}</div>`;
     let permanentLabel = null;
     let connector = null;
     if (permanent) {
@@ -297,7 +311,7 @@ function renderPlaces() {
         .setContent(label)
         .addTo(map);
       connector = L.polyline([[place.lat, place.lng], [place.lat, place.lng]], {
-        color: "#d85f3c",
+        color,
         weight: 2.5,
         opacity: 0,
         interactive: false
@@ -553,7 +567,7 @@ function renderList() {
   elements.list.innerHTML = state.places.map((place) => `
     <article class="place-item${place.id === state.editingId ? " is-editing" : ""}">
       <button class="place-main" type="button" data-focus="${place.id}">
-        <span class="place-name">${escapeHtml(place.name)}</span>
+        <span class="place-name"><span class="place-color" style="--point-color:${normalizeColor(place.color)}" aria-hidden="true"></span><span class="place-name-text">${escapeHtml(place.name)}</span></span>
         <span class="place-meta">${showsName(place) ? "地点名表示" : "地点名非表示"}${place.memo ? " · メモあり" : ""}</span>
       </button>
       ${isAdmin() ? `<span class="place-actions">
@@ -657,8 +671,13 @@ function clearPreview() {
   state.previewCircle = null;
 }
 
-function pointIcon(selected = false) {
-  return L.divIcon({ className: "point-marker", iconSize: [20, 20], iconAnchor: [10, 10], html: `<span class="point-dot${selected ? " selected" : ""}"></span>` });
+function pointIcon(color = DEFAULT_POINT_COLOR, selected = false) {
+  return L.divIcon({
+    className: "point-marker",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    html: `<span class="point-dot${selected ? " selected" : ""}" style="--point-color:${normalizeColor(color)}"></span>`
+  });
 }
 
 function circleStyle(radius) {
@@ -667,6 +686,10 @@ function circleStyle(radius) {
 
 function showsName(place) {
   return place.showName !== false;
+}
+
+function normalizeColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value ?? "")) ? String(value).toLowerCase() : DEFAULT_POINT_COLOR;
 }
 
 function normalizeRadius(value) {
